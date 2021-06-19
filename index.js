@@ -5,6 +5,7 @@ const config = require('./config');
 
 const client = new Discord.Client();
 client.commands = new Discord.Collection();
+client.cooldowns = new Discord.Collection();
 
 const commandFolders = fs.readdirSync('./commands');
 
@@ -30,8 +31,12 @@ client.on('message', async message => {
 
 	const command = client.commands.get(commandName)
 
-	if (command.required_args != args.length) {
-		let reply = `You didn't provide enough arguments, ${message.author}!\nRequired arguments: ${command.required_args}`
+	if (command.guildOnly && message.channel.type === 'dm') {
+		return message.reply('I can\'t execute that command inside DMs!');
+	}
+
+	if (command.requiredArgs && command.requiredArgs != args.length) {
+		let reply = `You didn't provide enough arguments, ${message.author}!\nRequired arguments: ${command.requiredArgs}`
 		if (command.usage) {
 			reply += `Proper usage: \`${config.prefix + command.name + ' ' + command.usage}\``
 		}
@@ -49,4 +54,9 @@ client.on('message', async message => {
 
 require('./server')();
 
-client.login(config.token);
+try {
+	client.login(config.token);
+} catch(error) {
+	console.error('Bot couldn\'t login!\n', error);
+	process.exit()
+}
