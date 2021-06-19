@@ -1,19 +1,19 @@
 const Discord = require('discord.js');
-const config = require('./config');
-require('dotenv').config();
-
-// const helpcommand = require('./help');
-
 const fs = require('fs');
+require('dotenv').config();
+const config = require('./config');
 
 const client = new Discord.Client();
 client.commands = new Discord.Collection();
 
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+const commandFolders = fs.readdirSync('./commands');
 
-for (const file of commandFiles) {
-	const command = require(`./commands/${file}`);
-	client.commands.set(command.name, command);
+for (const folder of commandFolders) {
+	const commandFiles = fs.readdirSync(`./commands/${folder}`).filter(file => file.endsWith('.js'));
+	for (const file of commandFiles) {
+		const command = require(`./commands/${folder}/${file}`);
+		client.commands.set(command.name, command);
+	}
 }
 
 client.once('ready', () => {
@@ -24,13 +24,22 @@ client.on('message', async message => {
 	if (!message.content.startsWith(config.prefix) || message.author.bot) return;
 
 	const args = message.content.slice(config.prefix.length).trim().split(/ +/);
-	const command = args.shift().toLowerCase();
+	const commandName = args.shift().toLowerCase();
 
+	if (!client.commands.has(commandName)) return;
 
-	if (!client.commands.has(command)) return;
+	const command = client.commands.get(commandName)
+
+	if (command.required_args != args.length) {
+		let reply = `You didn't provide enough arguments, ${message.author}!\nRequired arguments: ${command.required_args}`
+		if (command.usage) {
+			reply += `Proper usage: \`${config.prefix + command.name + ' ' + command.usage}\``
+		}
+		return await message.channel.send(reply);
+	}
 
 	try {
-		await client.commands.get(command).execute(message, args);
+		await command.execute(message, args);
 	} catch (error) {
 		console.error(error);
 		await message.reply('there was an error trying to execute that command!');
